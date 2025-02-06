@@ -22,7 +22,7 @@ trainers:
     end_value: 1e-6
     inner_learning_rate: 1e-2
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune999
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune888
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: False
@@ -34,7 +34,7 @@ trainers:
 
 losses:
   loss_config:
-    frequency_space: False
+    frequency_space: True
     normalize_time: True
     scheduler_steps: ${trainers.training_config.scheduler_steps}
     use_scheduler: False
@@ -79,4 +79,4 @@ models:
 datasets:
   train:
     data_config:
-      batch_size: 128 #put the largest possible batch size
+      batch_size: 32 #put the largest possible batch size

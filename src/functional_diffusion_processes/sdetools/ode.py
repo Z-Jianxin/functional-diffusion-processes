@@ -37,9 +37,6 @@ class RectifiedODE(SDE, abc.ABC):
         self.is_unidimensional = len(self.shape) == 1
         self.x_norm = sde_config.x_norm
         self.energy_norm = sde_config.energy_norm
-        # These parameters are used in get_psm; if not provided, we default to 1.0.
-        # self.b = sde_config.get("b", 1.0)
-        # self.r = sde_config.get("r", 1.0)
         self.b, self.r = construct_b_and_r(self.x_norm, self.energy_norm, shape=self.shape)
 
     def _k(self, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None) -> jnp.ndarray:
@@ -52,8 +49,7 @@ class RectifiedODE(SDE, abc.ABC):
         Returns:
             jnp.ndarray: The value of k at time t.
         """
-        k = jnp.exp(jnp.log(1 - t) * self.b)
-        return k
+        raise NotImplementedError("This method should not be called.")
 
     def get_psm(self, t: jnp.ndarray) -> jnp.ndarray:
         """Compute the PSM (Power-Special-Matrix) at time t.
@@ -68,7 +64,7 @@ class RectifiedODE(SDE, abc.ABC):
         """
         if not self.is_unidimensional:
             t = jnp.expand_dims(t, axis=(-1))
-        psm = jnp.expand_dims(jnp.ones_like(t) * jnp.sqrt(self.b / self.r).reshape(1, *self.shape), -1)
+        psm = jnp.ones((t.shape[0], *self.shape, 1))
         return psm
 
     def score_fn(
@@ -91,7 +87,7 @@ class RectifiedODE(SDE, abc.ABC):
         Returns:
             An array of zeros with the same shape as y_corrupted.
         """
-        return jnp.zeros_like(y_corrupted)
+        raise NotImplementedError("This method should not be called.")
 
     def prior_sampling(
         self, rng: jax.random.PRNGKey, shape: Tuple[int, ...], t0: Optional[jnp.ndarray] = None
@@ -119,7 +115,8 @@ class RectifiedODE(SDE, abc.ABC):
 
         rng, step_rng = jax.random.split(rng)
         phase = rand_phase(step_rng, z_freq.shape)
-        fact = self.r / self.b * (1 - self._k(t, t0)) ** 2
+        fact = (self.r / self.b).reshape(1, *self.b.shape, 1)
+        fact = jnp.broadcast_to(fact, (b, *self.shape, 1))  # * (1 - self._k(t, t0)) ** 2
         sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
         z = jnp.real(self.inverse_fourier_transform(state=batch_mul(batch_mul(sigma, z_freq), phase))).reshape(b, g, c)
         return z
@@ -149,19 +146,22 @@ class RectifiedODE(SDE, abc.ABC):
               - noise_std is set to t.
         """
         b, g, c = x.shape
-        x_freq = self.fourier_transform(state=x.reshape(b, *self.shape, c))
-        t = jnp.expand_dims(t, axis=-1)
-        if t0 is not None:
-            t0 = jnp.expand_dims(t0, axis=-1)
-        k_t = self._k(t, t0).reshape(b, *self.shape, 1)
-        x_freq = batch_mul(k_t, x_freq)
-        x0t = jnp.real(self.inverse_fourier_transform(state=x_freq)).reshape(b, g, c)
-        phase = rand_phase(rng, (b, *self.shape, c))
-        fact = self.r / self.b * (1 - self._k(t, t0)) ** 2
+        # x_freq = self.fourier_transform(state=x.reshape(b, *self.shape, c))
+        # t = jnp.expand_dims(t, axis=-1)
+        # if t0 is not None:
+        #    t0 = jnp.expand_dims(t0, axis=-1)
+        # k_t = self._k(t, t0).reshape(b, *self.shape, 1)
+        # x_freq = batch_mul(k_t, x_freq)
+        # x0t = jnp.real(self.inverse_fourier_transform(state=x_freq)).reshape(b, g, c)
+        # phase = rand_phase(rng, (b, *self.shape, c))
+        # fact = self.r / self.b * (1 - self._k(t, t0)) ** 2
         # print(self.r.shape, self.b.shape, t.shape, fact.shape) # (32, 32) (32, 32) (64, 1, 1) (64, 32, 32)
-        sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
-        noise_std = batch_mul(sigma, phase)
-        return x0t, noise_std
+        # sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
+        # noise_std = batch_mul(sigma, phase)
+        t = t.reshape(b, *[1] * (len(self.shape) + 1))
+        t = jnp.broadcast_to(t, (b, *self.shape, 1))
+        x0t = x.reshape(b, *self.shape, c) * t
+        return x0t, 1.0 - t
 
     def sde(
         self,
@@ -189,18 +189,12 @@ class RectifiedODE(SDE, abc.ABC):
         Returns:
             A tuple (drift, diffusion) with diffusion = 0.
         """
-        if y_reconstructed is None:
-            raise ValueError("y_reconstructed must be provided for ODE drift computation.")
-        # To avoid division by zero at t=0, we use a safe version.
-        t_safe = jnp.where(t == 0, 1.0, t)
-        drift = (y_corrupted - y_reconstructed) / t_safe
-        diffusion = 0.0
-        return drift, diffusion
+        raise NotImplementedError("This method should not be called.")
 
     def get_reverse_noise(self, rng: PRNGKeyArray, shape: Tuple[int, ...]) -> jnp.ndarray:
-        return None
+        raise NotImplementedError("This method should not be called.")
 
     def diffuse(
         self, rng: PRNGKeyArray, x: jnp.ndarray, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None
     ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        return None, None
+        raise NotImplementedError("This method should not be called.")

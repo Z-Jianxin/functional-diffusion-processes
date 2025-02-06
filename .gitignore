@@ -1,3 +1,6 @@
+# downloaded checkpoints
+artifacts
+
 wandb
 multirun.yaml
 storage

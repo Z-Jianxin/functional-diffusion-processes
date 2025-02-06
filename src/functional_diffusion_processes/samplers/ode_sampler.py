@@ -70,7 +70,8 @@ class ODESampler(Sampler, abc.ABC):
             Callable: A function that performs sampling over a range of time.
         """
         times = (
-            jnp.linspace(self.sampler_config.T, self.sampler_config.eps, self.sampler_config.N + 1)
+            # jnp.linspace(self.sampler_config.T, self.sampler_config.eps, self.sampler_config.N + 1)
+            jnp.linspace(self.sampler_config.eps, self.sampler_config.T, self.sampler_config.N + 1)
             ** self.sampler_config.k
         )
 
@@ -87,7 +88,7 @@ class ODESampler(Sampler, abc.ABC):
             Returns:
                 Tuple: The updated values of the sampling process.
             """
-            rng, x, x_mean, batch_input, params, history = val
+            rng, x, x_mean, init_noise, batch_input, params, history = val
             t = times[i - 1]
             vec_t = t * jnp.ones((x.shape[0], 1))
 
@@ -101,9 +102,9 @@ class ODESampler(Sampler, abc.ABC):
             psm = ode.get_psm(vec_t)
             shape = ode.sde_config.shape
             v = predict_fn(params, x, batch_input, vec_t, psm, shape)
-            x = x - v * dt
+            x = x + (v - init_noise) * dt
 
-            return rng, x, x, batch_input, params, history.at[i - 1].set(x)
+            return rng, x, x, init_noise, batch_input, params, history.at[i - 1].set(x)
 
         @partial(jax.pmap, axis_name="device")
         def sample_fn(rng: PRNGKeyArray, batch_input: jnp.ndarray, params: Params) -> tuple[Any, Any, Any]:
@@ -127,11 +128,11 @@ class ODESampler(Sampler, abc.ABC):
             c = self.sampler_config.output_size
             batch_noise = self.sde.prior_sampling(step_rng, (b, g, c))
             history_buffer = jnp.zeros((self.sampler_config.N,) + batch_noise.shape)
-            _, x, x_mean, _, _, x_all_steps = jax.lax.fori_loop(
+            _, x, x_mean, _, _, _, x_all_steps = jax.lax.fori_loop(
                 1,
                 self.sampler_config.N,
                 _step_pc_sample_fn,
-                (rng, batch_noise, batch_noise, batch_input, params, history_buffer),
+                (rng, batch_noise, batch_noise, batch_noise, batch_input, params, history_buffer),
             )
             t = times[-1]
             vec_t = t * jnp.ones((b, 1))

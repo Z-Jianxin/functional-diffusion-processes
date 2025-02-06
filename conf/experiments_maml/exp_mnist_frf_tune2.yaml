@@ -8,21 +8,21 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "frf_tune_full_mnist"
+  model_name: "1000001_wk2xz1ni:v0"
   training_config:
-    total_steps: 500000
-    eval_freq: 5000
+    total_steps: 1500000
+    eval_freq: 10000
     scheduler_steps: 10000
-    checkpoint_freq: 5000
-    resume_training: False
+    checkpoint_freq: 10000
+    resume_training: True
     warmup_steps: 6000
     decay_steps : 30000
-    learning_rate: 1e-5
-    peak_value: 3.3e-5
+    learning_rate: 1e-3
+    peak_value: 3.3e-4
     end_value: 1e-6
     inner_learning_rate: 1e-2
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune999
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune8888__
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: False
@@ -38,7 +38,7 @@ losses:
     normalize_time: True
     scheduler_steps: ${trainers.training_config.scheduler_steps}
     use_scheduler: False
-    reduce_mean: True
+    reduce_mean: False
     y_input: False
 
 
@@ -55,6 +55,7 @@ correctors:
 
 samplers:
   sampler_config:
+    eps: 0.0
     N: 100
     k: 1
     denoise: True
@@ -79,4 +80,4 @@ models:
 datasets:
   train:
     data_config:
-      batch_size: 128 #put the largest possible batch size
+      batch_size: 32 #put the largest possible batch size
