@@ -70,7 +70,7 @@ class ODEMSELoss(abc.ABC):
 
             # Sample a time t for each instance.
             rng, step_rng = jax.random.split(rng)
-            t = jax.random.uniform(step_rng, (b, 1), minval=0, maxval=1.0)
+            t = jax.random.uniform(step_rng, (b, 1), minval=self.sde.sde_config.eps, maxval=self.sde.sde_config.T)
             if self.loss_config.use_scheduler:
                 t = t * (1 - jnp.exp(-step / self.loss_config.scheduler_steps))
             t_new = jnp.reshape(t, (b, 1, 1))
@@ -92,7 +92,7 @@ class ODEMSELoss(abc.ABC):
             # jnp.real(self.sde.inverse_fourier_transform(batch_mul(std, noise_freq)).reshape(b, g, c))
             batch_corrupted = mean + noise_std
             if self.loss_config.y_input:
-                batch_input = batch_input.at[:, :, len(shape) : len(shape) + c].set(batch_corrupted)
+                batch_input = batch_input.at[:, :, len(shape) : len(shape) + c].set(batch_corrupted.reshape(b, g, c))
 
             psm = self.sde.get_psm(t)
             new_rng, model_output, loss_inner = update_params_fn(rng, params, batch_input, batch_corrupted, psm)

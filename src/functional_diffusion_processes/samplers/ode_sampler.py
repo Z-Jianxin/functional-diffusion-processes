@@ -102,7 +102,7 @@ class ODESampler(Sampler, abc.ABC):
             psm = ode.get_psm(vec_t)
             shape = ode.sde_config.shape
             v = predict_fn(params, x, batch_input, vec_t, psm, shape)
-            x = x + (v - init_noise) * dt
+            x = x + (v - x) / (1 - t) * dt
 
             return rng, x, x, init_noise, batch_input, params, history.at[i - 1].set(x)
 
@@ -130,7 +130,7 @@ class ODESampler(Sampler, abc.ABC):
             history_buffer = jnp.zeros((self.sampler_config.N,) + batch_noise.shape)
             _, x, x_mean, _, _, _, x_all_steps = jax.lax.fori_loop(
                 1,
-                self.sampler_config.N,
+                self.sampler_config.N + 1,
                 _step_pc_sample_fn,
                 (rng, batch_noise, batch_noise, batch_noise, batch_input, params, history_buffer),
             )

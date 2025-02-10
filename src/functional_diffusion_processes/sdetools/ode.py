@@ -38,6 +38,8 @@ class RectifiedODE(SDE, abc.ABC):
         self.x_norm = sde_config.x_norm
         self.energy_norm = sde_config.energy_norm
         self.b, self.r = construct_b_and_r(self.x_norm, self.energy_norm, shape=self.shape)
+        self.sigma = 1.0
+        self.band_width = 1.0
 
     def _k(self, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None) -> jnp.ndarray:
         """Compute the k function value at a given time t.
@@ -120,6 +122,49 @@ class RectifiedODE(SDE, abc.ABC):
         sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
         z = jnp.real(self.inverse_fourier_transform(state=batch_mul(batch_mul(sigma, z_freq), phase))).reshape(b, g, c)
         return z
+        """nx, ny = self.shape
+
+        x = jnp.linspace(0.0, 1.0, num=nx)
+        y = jnp.linspace(0.0, 1.0, num=ny)
+        # Use 'ij' indexing so that X has shape (nx, ny).
+        X, Y = jnp.meshgrid(x, y, indexing='ij')
+        # Stack to get a grid of points with shape (nx, ny, 2)
+        XY = jnp.stack([X, Y], axis=-1)
+
+        # Flatten the grid: from (nx, ny, 2) to (n_points, 2)
+        grid_points = XY.reshape(-1, 2)
+        n_points = grid_points.shape[0]
+
+        # Compute pairwise Euclidean distances between grid points.
+        # diff: shape (n_points, n_points, 2)
+        diff = grid_points[:, None, :] - grid_points[None, :, :]
+        # Euclidean norm: shape (n_points, n_points)
+        r = jnp.sqrt(jnp.sum(diff ** 2, axis=-1))
+
+        # Matern-3/2 kernel:
+        #   k(r) = sigma² * (1 + sqrt(3)*r/l) * exp(-sqrt(3)*r/l)
+        sqrt3 = math.sqrt(3.0)
+        K = self.sigma**2 * (1.0 + sqrt3 * r / self.band_width) * jnp.exp(-sqrt3 * r / self.band_width)
+
+        # Add a small jitter for numerical stability.
+        jitter = 1e-6
+        K += jitter * jnp.eye(n_points)
+
+        # Compute the Cholesky decomposition.
+        L = jnp.linalg.cholesky(K)  # shape: (n_points, n_points)
+
+        # Interpret the provided shape as (batch_size, channels).
+        batch_size, g, channels = shape
+        assert g == n_points
+
+        # Sample independent standard normal variates: shape (batch_size, n_points, channels)
+        z = jax.random.normal(rng, shape=(batch_size, n_points, channels))
+
+        # Impose the GP covariance using the Cholesky factor.
+        # 'ij,bjc->bic' multiplies L (over grid points) with z.
+        gp_sample = jnp.einsum('ij,bjc->bic', L, z)
+
+        return gp_sample.reshape(batch_size, n_points, channels)"""
 
     def marginal_prob(
         self,
