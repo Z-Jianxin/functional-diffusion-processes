@@ -1,8 +1,10 @@
 import abc
+from pathlib import Path
 from typing import Optional, Tuple
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.random import PRNGKeyArray
 
 from ..sdetools.base_sde import SDE
@@ -66,7 +68,22 @@ class RectifiedODE(SDE, abc.ABC):
         """
         if not self.is_unidimensional:
             t = jnp.expand_dims(t, axis=(-1))
-        psm = jnp.ones((t.shape[0], *self.shape, 1))
+        if self.sde_config.psm_choice == "fdp" or self.sde_config.psm_choice is None:
+            psm = jnp.expand_dims(jnp.ones_like(t) * jnp.sqrt(self.b / self.r).reshape(1, *self.shape), -1)
+        elif self.sde_config.psm_choice == "all_ones":
+            psm = jnp.ones((t.shape[0], *self.shape, 1))
+        elif Path(self.sde_config.psm_choice).is_file():
+            psm = jnp.array(np.load(self.sde_config.psm_choice))
+            psm = jnp.expand_dims(psm, axis=(0, -1))
+            assert psm.shape == (1, *self.shape, 1), f"Shape mismatch: expected {(1, *self.shape, 1)}, got {psm.shape}"
+            psm = jnp.broadcast_to(psm, (t.shape[0], *self.shape, 1))
+            assert psm.shape == (
+                t.shape[0],
+                *self.shape,
+                1,
+            ), f"Shape mismatch: expected {(t.shape[0], *self.shape, 1)}, got {psm.shape}"
+        else:
+            raise NotImplementedError("Unimplemented PSM type")
         return psm
 
     def score_fn(

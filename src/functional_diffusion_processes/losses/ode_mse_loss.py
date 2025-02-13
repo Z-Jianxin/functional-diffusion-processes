@@ -105,9 +105,14 @@ class ODEMSELoss(abc.ABC):
             if self.loss_config.frequency_space:
                 prediction_freq = self.sde.fourier_transform(state=prediction)
                 target_freq = self.sde.fourier_transform(state=batch_real)
-                # psm = self.sde.get_psm(t)
-                # squared_loss = jnp.abs(prediction_freq * psm - target_freq * psm) ** 2
-                squared_loss = jnp.abs(prediction_freq - target_freq) ** 2
+                if self.loss_config.outer_fftshift:
+                    prediction_freq = jnp.fft.fftshift(prediction_freq)
+                    target_freq = jnp.fft.fftshift(target_freq)
+                if self.loss_config.outer_psm:
+                    psm = self.sde.get_psm(t)
+                    squared_loss = jnp.abs(prediction_freq * psm - target_freq * psm) ** 2
+                else:
+                    squared_loss = jnp.abs(prediction_freq - target_freq) ** 2
             else:
                 # psm = self.sde.get_psm(t)
                 # squared_loss = jnp.abs(prediction * psm - batch_real * psm) ** 2

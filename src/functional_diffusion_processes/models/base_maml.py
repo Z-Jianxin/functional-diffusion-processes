@@ -194,6 +194,9 @@ class BaseMAML(nn.Module, abc.ABC):
             else:
                 model_output_freq = jnp.fft.fft(model_output.reshape(*psm.shape[:-1], c), norm="ortho", axis=0)
                 y_corrupted_freq = jnp.fft.fft(y_corrupted.reshape(*psm.shape[:-1], c), norm="ortho", axis=0)
+            if self.model_config.inner_fftshift:
+                model_output_freq = jnp.fft.fftshift(model_output_freq)
+                y_corrupted_freq = jnp.fft.fftshift(y_corrupted_freq)
             mse = mean_square_error(
                 y_corrupted_freq.reshape(-1, c),
                 model_output_freq.reshape(-1, c),

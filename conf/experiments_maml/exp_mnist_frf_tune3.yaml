@@ -8,21 +8,21 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "124001_cxugbpnd:v0"
+  model_name: "1200001_3fl5t8y4:v0"
   training_config:
-    total_steps: 500000
+    total_steps: 1600000
     eval_freq: 2000
     scheduler_steps: 10000
     checkpoint_freq: 2000
     resume_training: True
     warmup_steps: 6000
     decay_steps : 30000
-    learning_rate: 1e-5
-    peak_value: 3.3e-5
-    end_value: 1e-5
+    learning_rate: 1e-6
+    peak_value: 3.3e-6
+    end_value: 1e-6
     inner_learning_rate: 4e-3
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_trueRF_newgp3
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_trueRF_weightedpsm_corrected2
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: False
@@ -35,7 +35,9 @@ trainers:
 
 losses:
   loss_config:
-    frequency_space: False
+    outer_psm: True
+    frequency_space: True
+    outer_fftshift: False
     normalize_time: True
     scheduler_steps: ${trainers.training_config.scheduler_steps}
     use_scheduler: False
@@ -45,6 +47,7 @@ losses:
 
 sdes:
   sde_config:
+    psm_choice: "/nfs/turbo/coe-clayscot/jianxinz/fdp_project/data_stats/mnist_recip_std.npy"
     beta_max: 5.0
     const: 0.02
     psm_type: "time_independent"
@@ -66,7 +69,7 @@ samplers:
 models:
   model_config:
     use_dense_lr: False
-
+    inner_fftshift: False
     layer_sizes:
       - 128
       - 128

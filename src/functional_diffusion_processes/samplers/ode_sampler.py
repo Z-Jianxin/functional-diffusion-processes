@@ -134,6 +134,21 @@ class ODESampler(Sampler, abc.ABC):
                 _step_pc_sample_fn,
                 (rng, batch_noise, batch_noise, batch_noise, batch_input, params, history_buffer),
             )
+            """
+            from jax.experimental.ode import odeint
+            def func(x, t, eps=1e-9):
+                # if jnp.abs(t-self.sampler_config.T) <= eps:
+                #    return jnp.zeros_like(x)
+                vec_t = t * jnp.ones((x.shape[0], 1))
+                shape = self.sde.sde_config.shape
+                psm = self.sde.get_psm(vec_t)
+                v = predict_fn(params, x, batch_input, vec_t, psm, shape)
+                return (v - x) / (1 - t + eps)
+
+            t_steps = jnp.linspace(self.sampler_config.eps, self.sampler_config.T, self.sampler_config.N + 1)
+            x_all_steps = odeint(func, batch_noise, t_steps, rtol=1e-3, atol=1e-3)
+            x = x_mean = x_all_steps[-1]"""
+
             t = times[-1]
             vec_t = t * jnp.ones((b, 1))
             psm = self.sde.get_psm(vec_t)

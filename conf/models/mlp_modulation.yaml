@@ -18,6 +18,7 @@ model_config:
   uniform_min_val: 0.005
   uniform_max_val: 0.1
   y_input: False
+  inner_fftshift: False
 
 
 optimizer_inner:
