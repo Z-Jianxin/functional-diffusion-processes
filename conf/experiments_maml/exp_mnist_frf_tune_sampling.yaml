@@ -8,34 +8,37 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "1500001_9lg7v8wl:v0"
+  model_name: "1000001_dcybjwe5:v0" #"1312001_9cgb6w0i:v0"
   training_config:
     seed: 1
-    total_steps: 1500011
+    total_steps: 1312011
     eval_freq: 1
     scheduler_steps: 10000
     checkpoint_freq: 10000
     resume_training: True
     warmup_steps: 6000
     decay_steps : 30000
-    learning_rate: 1e-3
-    peak_value: 3.3e-4
+    learning_rate: 1e-6
+    peak_value: 3.3e-6
     end_value: 1e-6
-    inner_learning_rate: 1e-2
+    inner_learning_rate: 1e-2 # weighted: 4e-3
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune8888_psmloss_RFsampling_solver
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_diffrax_fdp_sampling
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: True
+    weight_decay: 1e-4 # weighted: 1e-6
   trainer_logging:
     use_wandb: True
     wandb_init:
       name: ${trainers.training_config.save_dir}
-      project: "frf_tune_full_mnist"
+      project: "frf_tune_inr_mnist"
 
 losses:
   loss_config:
-    frequency_space: False
+    outer_psm: True
+    frequency_space: True
+    outer_fftshift: False
     normalize_time: True
     scheduler_steps: ${trainers.training_config.scheduler_steps}
     use_scheduler: False
@@ -45,6 +48,7 @@ losses:
 
 sdes:
   sde_config:
+    psm_choice: "fdp" # "/nfs/turbo/coe-clayscot/jianxinz/fdp_project/data_stats/mnist_recip_std.npy"
     beta_max: 5.0
     const: 0.02
     psm_type: "time_independent"
@@ -56,7 +60,7 @@ correctors:
 
 samplers:
   sampler_config:
-    eps: 0.0
+    eps: 0.001
     N: 100
     k: 1
     denoise: True
@@ -66,7 +70,7 @@ samplers:
 models:
   model_config:
     use_dense_lr: False
-
+    inner_fftshift: False
     layer_sizes:
       - 128
       - 128

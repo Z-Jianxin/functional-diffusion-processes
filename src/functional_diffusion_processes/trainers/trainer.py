@@ -93,7 +93,7 @@ class Trainer(abc.ABC):
             run = wandb.init(
                 name=os.path.basename(self.logging.wandb_init.name),
                 project=self.logging.wandb_init.project,
-                # entity=self.logging.wandb_init.entity,
+                dir=os.path.join("${oc.env:LOGS_ROOT}", "wandb_log"),
                 save_code=self.logging.wandb_init.save_code,
                 config={
                     **self.training_config,

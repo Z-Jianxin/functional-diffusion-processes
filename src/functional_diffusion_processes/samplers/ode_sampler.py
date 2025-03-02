@@ -17,6 +17,7 @@ import abc
 from functools import partial
 from typing import Any, Callable, Union
 
+import diffrax
 import jax
 import jax.numpy as jnp
 from flax.core import FrozenDict
@@ -70,8 +71,7 @@ class ODESampler(Sampler, abc.ABC):
             Callable: A function that performs sampling over a range of time.
         """
         times = (
-            # jnp.linspace(self.sampler_config.T, self.sampler_config.eps, self.sampler_config.N + 1)
-            jnp.linspace(self.sampler_config.eps, self.sampler_config.T, self.sampler_config.N + 1)
+            jnp.linspace(0, self.sampler_config.T - self.sampler_config.eps, self.sampler_config.N + 1)
             ** self.sampler_config.k
         )
 
@@ -127,27 +127,35 @@ class ODESampler(Sampler, abc.ABC):
             b, g, _ = batch_input.shape
             c = self.sampler_config.output_size
             batch_noise = self.sde.prior_sampling(step_rng, (b, g, c))
-            history_buffer = jnp.zeros((self.sampler_config.N,) + batch_noise.shape)
-            _, x, x_mean, _, _, _, x_all_steps = jax.lax.fori_loop(
-                1,
-                self.sampler_config.N + 1,
-                _step_pc_sample_fn,
-                (rng, batch_noise, batch_noise, batch_noise, batch_input, params, history_buffer),
-            )
-            """
-            from jax.experimental.ode import odeint
-            def func(x, t, eps=1e-9):
-                # if jnp.abs(t-self.sampler_config.T) <= eps:
-                #    return jnp.zeros_like(x)
+
+            def func(t, x, args):
+                (eps,) = args
                 vec_t = t * jnp.ones((x.shape[0], 1))
                 shape = self.sde.sde_config.shape
                 psm = self.sde.get_psm(vec_t)
                 v = predict_fn(params, x, batch_input, vec_t, psm, shape)
                 return (v - x) / (1 - t + eps)
 
-            t_steps = jnp.linspace(self.sampler_config.eps, self.sampler_config.T, self.sampler_config.N + 1)
-            x_all_steps = odeint(func, batch_noise, t_steps, rtol=1e-3, atol=1e-3)
-            x = x_mean = x_all_steps[-1]"""
+            term = diffrax.ODETerm(func)  # ODE term
+            saveat = diffrax.SaveAt(
+                ts=jnp.linspace(0, self.sampler_config.T - self.sampler_config.eps, self.sampler_config.N + 1)
+            )
+            solver = diffrax.Dopri5()
+            stepsize_controller = diffrax.PIDController(rtol=1e-2, atol=3e-3)
+            solution = diffrax.diffeqsolve(
+                term,
+                solver,
+                t0=0,
+                t1=self.sampler_config.T - self.sampler_config.eps,
+                dt0=None,
+                y0=batch_noise,
+                saveat=saveat,
+                args=(0,),
+                stepsize_controller=stepsize_controller,
+            )
+            x_all_steps = solution.ys
+            x = x_all_steps[-1]
+            x_mean = x_all_steps[-1]
 
             t = times[-1]
             vec_t = t * jnp.ones((b, 1))

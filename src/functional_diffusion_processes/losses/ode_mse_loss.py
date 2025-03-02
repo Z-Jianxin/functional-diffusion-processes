@@ -70,9 +70,9 @@ class ODEMSELoss(abc.ABC):
 
             # Sample a time t for each instance.
             rng, step_rng = jax.random.split(rng)
-            t = jax.random.uniform(step_rng, (b, 1), minval=self.sde.sde_config.eps, maxval=self.sde.sde_config.T)
+            t = jax.random.uniform(step_rng, (b, 1), minval=0, maxval=self.sde.sde_config.T - self.sde.sde_config.eps)
             if self.loss_config.use_scheduler:
-                t = t * (1 - jnp.exp(-step / self.loss_config.scheduler_steps))
+                t = 1 - t * (1 - jnp.exp(-step / self.loss_config.scheduler_steps))
             t_new = jnp.reshape(t, (b, 1, 1))
             t_new = jnp.broadcast_to(t_new, (b, g, 1))
             if self.loss_config.normalize_time:
