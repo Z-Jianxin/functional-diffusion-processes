@@ -44,16 +44,7 @@ class RectifiedODE(SDE, abc.ABC):
         self.band_width = 1.0
 
     def _k(self, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None) -> jnp.ndarray:
-        """Compute the k function value at a given time t.
-
-        Args:
-            t (jnp.ndarray): The time at which to compute the k function.
-            t0 (Optional[jnp.ndarray], optional): The starting time for computing k. Defaults to None.
-
-        Returns:
-            jnp.ndarray: The value of k at time t.
-        """
-        raise NotImplementedError("This method should not be called.")
+        raise NotImplementedError("This method should not be called for functional rectified flow.")
 
     def get_psm(self, t: jnp.ndarray) -> jnp.ndarray:
         """Compute the PSM (Power-Special-Matrix) at time t.
@@ -93,20 +84,7 @@ class RectifiedODE(SDE, abc.ABC):
         t: jnp.ndarray,
         rng: Optional[jax.random.PRNGKey] = None,
     ) -> jnp.ndarray:
-        """Compute the score function.
-
-        For this ODE, the score function is set to 0.
-
-        Args:
-            y_corrupted: The current (corrupted) state.
-            y_reconstructed: The reconstructed (or original) state.
-            t: The current time.
-            rng: Optional random key.
-
-        Returns:
-            An array of zeros with the same shape as y_corrupted.
-        """
-        raise NotImplementedError("This method should not be called.")
+        raise NotImplementedError("This method should not be called for functional rectified flow.")
 
     def prior_sampling(
         self, rng: jax.random.PRNGKey, shape: Tuple[int, ...], t0: Optional[jnp.ndarray] = None
@@ -232,31 +210,12 @@ class RectifiedODE(SDE, abc.ABC):
         rng: Optional[jax.random.PRNGKey] = None,
         y_reconstructed: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        """Compute the drift and diffusion terms for the ODE at time t.
-
-        Given the marginal process
-            y(t) = (1-t) * y_reconstructed + t * noise,
-        the time derivative is
-            dy/dt = (noise - y_reconstructed) = (y_corrupted - y_reconstructed) / t,
-        where we assume y_reconstructed corresponds to X0 and y_corrupted to x_t.
-
-        Diffusion is set to zero.
-
-        Args:
-            y_corrupted: The current state (i.e. (1-t)*X0 + t*noise).
-            t: The current time.
-            rng: Optional random key (unused here).
-            y_reconstructed: The original state X0; required for computing the drift.
-
-        Returns:
-            A tuple (drift, diffusion) with diffusion = 0.
-        """
-        raise NotImplementedError("This method should not be called.")
+        raise NotImplementedError("This method should not be called for functional rectified flow.")
 
     def get_reverse_noise(self, rng: PRNGKeyArray, shape: Tuple[int, ...]) -> jnp.ndarray:
-        raise NotImplementedError("This method should not be called.")
+        raise NotImplementedError("This method should not be called for functional rectified flow.")
 
     def diffuse(
         self, rng: PRNGKeyArray, x: jnp.ndarray, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None
     ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        raise NotImplementedError("This method should not be called.")
+        raise NotImplementedError("This method should not be called for functional rectified flow.")
