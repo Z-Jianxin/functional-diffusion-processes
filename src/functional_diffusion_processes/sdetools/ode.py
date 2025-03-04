@@ -40,8 +40,12 @@ class RectifiedODE(SDE, abc.ABC):
         self.x_norm = sde_config.x_norm
         self.energy_norm = sde_config.energy_norm
         self.b, self.r = construct_b_and_r(self.x_norm, self.energy_norm, shape=self.shape)
-        self.sigma = 1.0
-        self.band_width = 1.0
+
+        self.sigma = sde_config.sigma  # parameter for Matern Kernel
+        self.bandwidth = sde_config.l  # parameter for Matern Kernel
+        self.prior_type = sde_config.prior_type
+        if self.prior_type == "matern_onehalf":
+            self.cached_cholesky = self._compute_and_cache_marten_cholesky()
 
     def _k(self, t: jnp.ndarray, t0: Optional[jnp.ndarray] = None) -> jnp.ndarray:
         raise NotImplementedError("This method should not be called for functional rectified flow.")
@@ -86,12 +90,10 @@ class RectifiedODE(SDE, abc.ABC):
     ) -> jnp.ndarray:
         raise NotImplementedError("This method should not be called for functional rectified flow.")
 
-    def prior_sampling(
+    def _fdp_prior(
         self, rng: jax.random.PRNGKey, shape: Tuple[int, ...], t0: Optional[jnp.ndarray] = None
     ) -> jnp.ndarray:
-        """Sample from the prior distribution.
-
-        This implementation is kept unchanged and simply samples standard Gaussian noise.
+        """Sample from the original FDP prior distribution.
 
         Args:
             rng: The random number generator key.
@@ -117,49 +119,66 @@ class RectifiedODE(SDE, abc.ABC):
         sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
         z = jnp.real(self.inverse_fourier_transform(state=batch_mul(batch_mul(sigma, z_freq), phase))).reshape(b, g, c)
         return z
-        """nx, ny = self.shape
 
-        x = jnp.linspace(0.0, 1.0, num=nx)
-        y = jnp.linspace(0.0, 1.0, num=ny)
-        # Use 'ij' indexing so that X has shape (nx, ny).
-        X, Y = jnp.meshgrid(x, y, indexing='ij')
-        # Stack to get a grid of points with shape (nx, ny, 2)
-        XY = jnp.stack([X, Y], axis=-1)
+    def _compute_and_cache_marten_cholesky(self):
+        H, W = self.shape
+        g = H * W
+        xs = jnp.linspace(0, 1, H)
+        ys = jnp.linspace(0, 1, W)
+        grid_x, grid_y = jnp.meshgrid(xs, ys, indexing="ij")
+        grid_coords = jnp.stack([grid_x.ravel(), grid_y.ravel()], axis=-1)  # shape (g, 2)
 
-        # Flatten the grid: from (nx, ny, 2) to (n_points, 2)
-        grid_points = XY.reshape(-1, 2)
-        n_points = grid_points.shape[0]
+        # Compute pairwise distances
+        diff = grid_coords[:, None, :] - grid_coords[None, :, :]  # (g, g, 2)
+        dists = jnp.sqrt(jnp.sum(diff**2, axis=-1))  # (g, g)
 
-        # Compute pairwise Euclidean distances between grid points.
-        # diff: shape (n_points, n_points, 2)
-        diff = grid_points[:, None, :] - grid_points[None, :, :]
-        # Euclidean norm: shape (n_points, n_points)
-        r = jnp.sqrt(jnp.sum(diff ** 2, axis=-1))
+        # Matérn (ν=0.5) kernel: exponential covariance
+        K = self.sigma**2 * jnp.exp(-dists / self.bandwidth)
+        jitter = 1e-6 * jnp.eye(g)
+        K = K + jitter
 
-        # Matern-3/2 kernel:
-        #   k(r) = sigma² * (1 + sqrt(3)*r/l) * exp(-sqrt(3)*r/l)
-        sqrt3 = math.sqrt(3.0)
-        K = self.sigma**2 * (1.0 + sqrt3 * r / self.band_width) * jnp.exp(-sqrt3 * r / self.band_width)
+        # Compute Cholesky factor (lower-triangular)
+        L = jax.scipy.linalg.cholesky(K, lower=True)
+        # Stop gradients so that L is treated as a concrete value.
+        return jax.lax.stop_gradient(L)
 
-        # Add a small jitter for numerical stability.
-        jitter = 1e-6
-        K += jitter * jnp.eye(n_points)
+    def _marten_kerel_prior(
+        self, rng: jax.random.PRNGKey, shape: Tuple[int, ...], t0: Optional[jnp.ndarray] = None
+    ) -> jnp.ndarray:
+        # Unpack shape: b = batch size, g = number of grid points, c = channels.
+        b, g, c = shape
+        H, W = self.shape
 
-        # Compute the Cholesky decomposition.
-        L = jnp.linalg.cholesky(K)  # shape: (n_points, n_points)
+        L = self.cached_cholesky
 
-        # Interpret the provided shape as (batch_size, channels).
-        batch_size, g, channels = shape
-        assert g == n_points
+        # Sample from the standard normal: shape (batch, g, channels).
+        z = jax.random.normal(rng, shape=(b, g, c))
 
-        # Sample independent standard normal variates: shape (batch_size, n_points, channels)
-        z = jax.random.normal(rng, shape=(batch_size, n_points, channels))
+        # Multiply by the Cholesky factor: for each sample, L @ z.
+        samples = jnp.einsum("ij,bjc->bic", L, z)
 
-        # Impose the GP covariance using the Cholesky factor.
-        # 'ij,bjc->bic' multiplies L (over grid points) with z.
-        gp_sample = jnp.einsum('ij,bjc->bic', L, z)
+        # Reshape to (batch, H, W, channels)
+        # samples = samples_flat.reshape(b, H, W, c)
+        return samples
 
-        return gp_sample.reshape(batch_size, n_points, channels)"""
+    def prior_sampling(
+        self, rng: jax.random.PRNGKey, shape: Tuple[int, ...], t0: Optional[jnp.ndarray] = None
+    ) -> jnp.ndarray:
+        """Sample from the prior distribution.
+
+        Args:
+            rng: The random number generator key.
+            shape: The shape of the sample to be generated.
+            t0: Optional initial time.
+
+        Returns:
+            A sample from a standard normal distribution.
+        """
+        if self.prior_type == "fdp":
+            return self._fdp_prior(rng, shape, t0)
+        elif self.prior_type == "matern_onehalf":
+            return self._marten_kerel_prior(rng, shape, t0)
+        raise NotImplementedError(f"Does not recognize prior type {self.prior_type}")
 
     def marginal_prob(
         self,

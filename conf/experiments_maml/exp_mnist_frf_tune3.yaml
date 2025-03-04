@@ -22,7 +22,7 @@ trainers:
     end_value: 1e-5
     inner_learning_rate: 1e-2
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_scheduler3
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_test_matern_onehalf_bs256
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: False
@@ -47,12 +47,16 @@ losses:
 
 sdes:
   sde_config:
-    psm_choice: "fdp" #"/nfs/turbo/coe-clayscot/jianxinz/fdp_project/data_stats/mnist_recip_std.npy"
+    psm_choice: "all_ones" #"/nfs/turbo/coe-clayscot/jianxinz/fdp_project/data_stats/mnist_recip_std.npy"
     beta_max: 5.0
     const: 0.02
     psm_type: "time_independent"
     x_norm: 32
     energy_norm: 1
+    sigma: 0.4
+    l: 0.2
+    prior_type: "matern_onehalf"
+
 
 correctors:
   snr: 0.16
@@ -84,4 +88,4 @@ models:
 datasets:
   train:
     data_config:
-      batch_size: 54 #put the largest possible batch size
+      batch_size: 64 #put the largest possible batch size
