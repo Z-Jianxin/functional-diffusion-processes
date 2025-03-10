@@ -16,6 +16,33 @@ from ..sdetools import SDE
 Params = FrozenDict[str, Any]
 T = TypeVar("T")
 
+from jax import vmap
+from jax.scipy.stats import norm
+
+
+class LogitNormalDistribution:
+    def __init__(self, mean: float = 0.5, std: float = 1.0, eps: float = 1e-6):
+        self.mean = mean
+        self.std = std
+        self.eps = eps
+
+    def logit(self, x: jnp.ndarray) -> jnp.ndarray:
+        """Numerically stable logit function."""
+        x = jnp.clip(x, self.eps, 1 - self.eps)
+        return jnp.log(x) - jnp.log1p(-x)
+
+    def pdf(self, x: jnp.ndarray) -> jnp.ndarray:
+        """Probability density function of the logit-normal distribution."""
+        logit_x = self.logit(x)
+        logit_pdf = norm.pdf(logit_x, loc=self.mean, scale=self.std)
+        # Apply the change of variables formula: f(x) = g(h(x)) * |h'(x)|
+        logit_derivative = 1 / (x * (1 - x) + self.eps)
+        return logit_pdf * logit_derivative
+
+    def batch_pdf(self, x: jnp.ndarray) -> jnp.ndarray:
+        """Evaluate the PDF for a batch of values."""
+        return vmap(self.pdf)(x)
+
 
 class ODEMSELoss(abc.ABC):
     """MSE loss for the ODE setting where the model output is noise-data.
@@ -114,9 +141,19 @@ class ODEMSELoss(abc.ABC):
                 else:
                     squared_loss = jnp.abs(prediction_freq - target_freq) ** 2
             else:
-                # psm = self.sde.get_psm(t)
-                # squared_loss = jnp.abs(prediction * psm - batch_real * psm) ** 2
                 squared_loss = jnp.abs(prediction - batch_real) ** 2
+
+            if self.loss_config.use_weights:
+                logit_normal = LogitNormalDistribution(
+                    mean=self.loss_config.lognormal_mean, std=self.loss_config.lognormal_std
+                )
+                weights = logit_normal.batch_pdf(
+                    t.reshape(
+                        b,
+                    )
+                ).reshape((b, 1, 1))
+                weights = jnp.broadcast_to(weights, (b, g, 1)).reshape(b, *shape, c)
+                squared_loss = weights * squared_loss
 
             losses = reduce_op(squared_loss.reshape(squared_loss.shape[0], -1), axis=-1)
             loss = jnp.mean(losses) / c

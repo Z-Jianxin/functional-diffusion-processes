@@ -8,22 +8,22 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "1000001_dcybjwe5:v0" #"1312001_9cgb6w0i:v0"
+  model_name: "400001_38suhd95:v0" #"340001_ecy8p026:v0" #"1000001_dcybjwe5:v0" #"1312001_9cgb6w0i:v0"
   training_config:
     seed: 1
-    total_steps: 1312011
+    total_steps: 400021
     eval_freq: 1
     scheduler_steps: 10000
     checkpoint_freq: 10000
     resume_training: True
     warmup_steps: 6000
     decay_steps : 30000
-    learning_rate: 1e-6
-    peak_value: 3.3e-6
-    end_value: 1e-6
+    learning_rate: 1e-5
+    peak_value: 3.3e-5
+    end_value: 1e-5
     inner_learning_rate: 1e-2 # weighted: 4e-3
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_diffrax_fdp_sampling
+    save_dir: ${oc.env:LOGS_ROOT}/sampling_show_paths
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: True
@@ -32,7 +32,7 @@ trainers:
     use_wandb: True
     wandb_init:
       name: ${trainers.training_config.save_dir}
-      project: "frf_tune_inr_mnist"
+      project: "frf_tune_inr_mnist_new" #"fdp"
 
 losses:
   loss_config:
@@ -54,6 +54,9 @@ sdes:
     psm_type: "time_independent"
     x_norm: 32
     energy_norm: 1
+    sigma: 0.4
+    l: 0.2
+    prior_type: "fdp"
 
 correctors:
   snr: 0.16
@@ -85,4 +88,4 @@ models:
 datasets:
   train:
     data_config:
-      batch_size: 32 #put the largest possible batch size
+      batch_size: 64 #put the largest possible batch size

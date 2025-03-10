@@ -1,5 +1,6 @@
 _target_: functional_diffusion_processes.sdetools.heat_subvp_sde.HeatSubVPSDE
 sde_config:
+  psm_choice: "fdp"
   frequency_space: True
   beta_max: 5.0
   beta_min: 0.1

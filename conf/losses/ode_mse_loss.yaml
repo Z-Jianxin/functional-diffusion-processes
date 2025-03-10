@@ -7,3 +7,6 @@ loss_config:
   y_input: False
   outer_fftshift: False
   outer_psm: False
+  use_weights: False
+  lognormal_mean: 0.5
+  lognormal_std: 1.0

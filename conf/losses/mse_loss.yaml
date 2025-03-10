@@ -5,3 +5,5 @@ loss_config:
   reduce_mean: True
   use_scheduler: True
   y_input: True
+  outer_fftshift: False
+  outer_psm: True

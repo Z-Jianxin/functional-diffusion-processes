@@ -188,6 +188,10 @@ class BaseMAML(nn.Module, abc.ABC):
             """
             c = y_corrupted.shape[-1]
             model_output = self.apply(params_i, batch_input)
+            if not self.model_config.inner_frequency_space:
+                mse = jnp.sum(jnp.square(jnp.abs(y_corrupted.reshape(-1, c) - model_output.reshape(-1, c))))
+                loss: jnp.ndarray = jnp.mean(mse)
+                return loss, loss
             if len(psm.shape) == 3:
                 model_output_freq = jnp.fft.fft2(model_output.reshape(*psm.shape[:-1], c), norm="ortho", axes=(0, 1))
                 y_corrupted_freq = jnp.fft.fft2(y_corrupted.reshape(*psm.shape[:-1], c), norm="ortho", axes=(0, 1))

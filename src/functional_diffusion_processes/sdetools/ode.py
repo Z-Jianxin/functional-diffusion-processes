@@ -205,18 +205,6 @@ class RectifiedODE(SDE, abc.ABC):
               - noise_std is set to t.
         """
         b, g, c = x.shape
-        # x_freq = self.fourier_transform(state=x.reshape(b, *self.shape, c))
-        # t = jnp.expand_dims(t, axis=-1)
-        # if t0 is not None:
-        #    t0 = jnp.expand_dims(t0, axis=-1)
-        # k_t = self._k(t, t0).reshape(b, *self.shape, 1)
-        # x_freq = batch_mul(k_t, x_freq)
-        # x0t = jnp.real(self.inverse_fourier_transform(state=x_freq)).reshape(b, g, c)
-        # phase = rand_phase(rng, (b, *self.shape, c))
-        # fact = self.r / self.b * (1 - self._k(t, t0)) ** 2
-        # print(self.r.shape, self.b.shape, t.shape, fact.shape) # (32, 32) (32, 32) (64, 1, 1) (64, 32, 32)
-        # sigma = jnp.sqrt(jnp.abs(fact)).reshape(b, *self.shape, 1)
-        # noise_std = batch_mul(sigma, phase)
         t = t.reshape(b, *[1] * (len(self.shape) + 1))
         t = jnp.broadcast_to(t, (b, *self.shape, 1))
         x0t = x.reshape(b, *self.shape, c) * t

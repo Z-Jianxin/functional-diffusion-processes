@@ -8,6 +8,7 @@ from typing import Any, Callable, Tuple, Union
 import flax
 import flax.jax_utils as flax_utils
 import hydra.utils
+import imageio
 
 # import imageio
 import jax
@@ -34,9 +35,6 @@ from ..utils.common import filter_mask, make_grid_image, process_images, save_sa
 from ..utils.scaler import get_data_inverse_scaler, get_data_scaler
 from ..utils.training_state import TrainState
 from .helpers import colorizing_fn, construct_sampling_fn, construct_train_step, inpainting_fn, sampling_fn
-
-# import imageio
-
 
 pylogger = logging.getLogger(__name__)
 
@@ -422,25 +420,25 @@ class Trainer(abc.ABC):
                             tf.io.gfile.makedirs(this_sample_dir)
 
                             # code below to show the gif of the sampled images
-                            # processed_images = []
-                            # for n in range(batch_sampled_all.shape[1]):
-                            #     batch_sampled_i = batch_sampled_all[:, n, :, :, :]
-                            #     batch_sampled_i = ds_train.postprocess_fn(
-                            #         batch_data=batch_sampled_i, inverse_scaler=inverse_scaler
-                            #     )
-                            #     processed_images.append(np.asarray(batch_sampled_i))
-                            #
+                            processed_images = []
+                            for n in range(batch_sampled_all.shape[1]):
+                                batch_sampled_i = batch_sampled_all[:, n, :, :, :]
+                                batch_sampled_i = ds_train.postprocess_fn(
+                                    batch_data=batch_sampled_i, inverse_scaler=inverse_scaler
+                                )
+                                processed_images.append(np.asarray(batch_sampled_i))
+
                             # # Log the sampled images as a GIF
-                            # imageio.mimwrite(
-                            #     os.path.join(this_sample_dir, "image_sequence.gif"),
-                            #     processed_images,
-                            #     fps=10,
-                            # )
-                            # gif_wandb = wandb.Image(
-                            #     os.path.join(this_sample_dir, "image_sequence.gif"),
-                            #     caption="Sampled_all_gif",
-                            # )
-                            # wandb.log({"Sampled_all_gif": gif_wandb}, step=step)
+                            imageio.mimwrite(
+                                os.path.join(this_sample_dir, "image_sequence.gif"),
+                                processed_images,
+                                fps=10,
+                            )
+                            gif_wandb = wandb.Image(
+                                os.path.join(this_sample_dir, "image_sequence.gif"),
+                                caption="Sampled_all_gif",
+                            )
+                            wandb.log({"Sampled_all_gif": gif_wandb}, step=step)
 
                         batch_sampled = ds_train.postprocess_fn(batch_data=batch_sampled, inverse_scaler=inverse_scaler)
                         batch_sampled_last = ds_train.postprocess_fn(
