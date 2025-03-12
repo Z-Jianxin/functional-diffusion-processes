@@ -8,13 +8,13 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "400001_38suhd95:v0" #"100001_n8g0wl14:v0"
+  model_name: "none" # "400001_38suhd95:v0" #"100001_n8g0wl14:v0"
   training_config:
     total_steps: 500000
     eval_freq: 2000
     scheduler_steps: 10000
     checkpoint_freq: 2000
-    resume_training: True
+    resume_training: False
     warmup_steps: 6000
     decay_steps : 30000
     learning_rate: 1e-5
@@ -22,7 +22,7 @@ trainers:
     end_value: 1e-5
     inner_learning_rate: 1e-2
     inner_steps: 3
-    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_test_bs256_everythingelsesameasfdp_lognormal_weights_nopsm
+    save_dir: ${oc.env:LOGS_ROOT}/train_inr_mnist_tune_test_bs256_fdpPSM_noweights_predict_noise
     use_meta_sgd: False
     ema_rate: 0.9999
     sampling_only: False
@@ -40,17 +40,17 @@ losses:
     outer_fftshift: False # [NEW] shift the FFT frequency
     normalize_time: True
     scheduler_steps: ${trainers.training_config.scheduler_steps}
-    use_scheduler: True
+    use_scheduler: False #True
     reduce_mean: False
     y_input: False
-    use_weights: True # [NEW] Esser et al. 2024, weights on time
+    use_weights: False # [NEW] Esser et al. 2024, weights on time
     lognormal_mean: 0.75 # [NEW]
     lognormal_std: 1.0 # [NEW]
 
 
 sdes:
   sde_config:
-    psm_choice: "all_ones" # [NEW] type of psm matrix to use
+    psm_choice: "fdp" # [NEW] type of psm matrix to use
     beta_max: 5.0
     const: 0.02
     psm_type: "time_independent"
@@ -59,6 +59,7 @@ sdes:
     sigma: 0.4 # [NEW] parameter for Matern kernel
     l: 0.2 # [NEW] parameter for Matern kernel
     prior_type: "fdp" # [NEW] type of noise prior
+    predict_noise: True # [NEW] predict noise, Esser et al. 2024
 
 
 correctors:

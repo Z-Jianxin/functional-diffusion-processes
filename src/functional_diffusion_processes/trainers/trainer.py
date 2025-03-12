@@ -98,6 +98,7 @@ class Trainer(abc.ABC):
                     **dataset_config,
                     **sde_config,
                     **model_config,
+                    **self.loss_obj.loss_config,
                 },
             )
         else:

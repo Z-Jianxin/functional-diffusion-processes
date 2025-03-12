@@ -114,8 +114,8 @@ class ODEMSELoss(abc.ABC):
             rng, step_rng = jax.random.split(rng)
             mean, std = self.sde.marginal_prob(step_rng, batch_real, t)
 
-            noise = self.sde.prior_sampling(step_rng, (b, g, c))
-            noise_std = std * noise.reshape(b, *shape, c)
+            noise = self.sde.prior_sampling(step_rng, (b, g, c)).reshape(b, *shape, c)
+            noise_std = std * noise
             # jnp.real(self.sde.inverse_fourier_transform(batch_mul(std, noise_freq)).reshape(b, g, c))
             batch_corrupted = mean + noise_std
             if self.loss_config.y_input:
@@ -126,12 +126,14 @@ class ODEMSELoss(abc.ABC):
             prediction = model_output.reshape(b, *shape, c)
             batch_corrupted = batch_corrupted.reshape(b, *shape, c)
             prediction = prediction.reshape(b, *shape, c)
-            # batch_real = (batch_real-noise).reshape(b, *shape, c)
             batch_real = batch_real.reshape(b, *shape, c)
+            target = batch_real
+            if self.sde.sde_config.predict_noise:
+                target = noise
 
             if self.loss_config.frequency_space:
                 prediction_freq = self.sde.fourier_transform(state=prediction)
-                target_freq = self.sde.fourier_transform(state=batch_real)
+                target_freq = self.sde.fourier_transform(state=target)
                 if self.loss_config.outer_fftshift:
                     prediction_freq = jnp.fft.fftshift(prediction_freq)
                     target_freq = jnp.fft.fftshift(target_freq)
@@ -141,22 +143,27 @@ class ODEMSELoss(abc.ABC):
                 else:
                     squared_loss = jnp.abs(prediction_freq - target_freq) ** 2
             else:
-                squared_loss = jnp.abs(prediction - batch_real) ** 2
+                squared_loss = jnp.abs(prediction - target) ** 2
 
             if self.loss_config.use_weights:
                 logit_normal = LogitNormalDistribution(
                     mean=self.loss_config.lognormal_mean, std=self.loss_config.lognormal_std
                 )
-                weights = logit_normal.batch_pdf(
-                    t.reshape(
-                        b,
-                    )
-                ).reshape((b, 1, 1))
+                t_flat = t.reshape(
+                    b,
+                )
+                weights = logit_normal.batch_pdf(t_flat)
+                if self.sde.sde_config.predict_noise:
+                    weights = weights / (t_flat**2 + 1e-6)
+                weights = weights.reshape((b, 1, 1))
                 weights = jnp.broadcast_to(weights, (b, g, 1)).reshape(b, *shape, c)
                 squared_loss = weights * squared_loss
 
             losses = reduce_op(squared_loss.reshape(squared_loss.shape[0], -1), axis=-1)
             loss = jnp.mean(losses) / c
-            return loss, (new_rng, loss, loss_inner, prediction, batch_corrupted, batch_real)
+            reconstruct = prediction
+            if self.sde.sde_config.predict_noise:
+                reconstruct = (batch_corrupted - prediction * std) / (1 - std + 1e-6)
+            return loss, (new_rng, loss, loss_inner, reconstruct, batch_corrupted, batch_real)
 
         return loss_fn

@@ -134,23 +134,26 @@ class ODESampler(Sampler, abc.ABC):
                 shape = self.sde.sde_config.shape
                 psm = self.sde.get_psm(vec_t)
                 v = predict_fn(params, x, batch_input, vec_t, psm, shape)
+                if self.sde.sde_config.predict_noise:
+                    return (x - v) / (t + eps)
+                    # v = (x - v * (1-t)) / (t+eps)
                 return (v - x) / (1 - t + eps)
 
             term = diffrax.ODETerm(func)  # ODE term
-            saveat = diffrax.SaveAt(
-                ts=jnp.linspace(0, self.sampler_config.T - self.sampler_config.eps, self.sampler_config.N + 1)
-            )
+            t0 = self.sampler_config.eps
+            t1 = self.sampler_config.T - self.sampler_config.eps
+            saveat = diffrax.SaveAt(ts=jnp.linspace(t0, t1, self.sampler_config.N + 1))
             solver = diffrax.Dopri5()
             stepsize_controller = diffrax.PIDController(rtol=1e-2, atol=3e-3)
             solution = diffrax.diffeqsolve(
                 term,
                 solver,
-                t0=0,
-                t1=self.sampler_config.T - self.sampler_config.eps,
-                dt0=None,
+                t0=t0,
+                t1=t1,
+                dt0=1e-3,
                 y0=batch_noise,
                 saveat=saveat,
-                args=(0,),
+                args=(1e-6,),
                 stepsize_controller=stepsize_controller,
             )
             x_all_steps = solution.ys
