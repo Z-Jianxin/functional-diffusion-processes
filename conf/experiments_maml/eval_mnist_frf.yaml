@@ -13,13 +13,13 @@ defaults:
 
 trainers:
   mode: "eval"
-  model_name: "500001_38suhd95:v0" #"500001_a9lzi3qo:v0"
+  model_name: "970001_2zri67x3:v0" # "552001_97ewawpm:v0" #"300001_r8wu98g3:v0" #"500001_38suhd95:v0" #"500001_a9lzi3qo:v0"
   training_config:
     inner_steps: 3
     inner_learning_rate: 1e-2
     use_meta_sgd: False
     ema_rate: 0.9999
-    save_dir: ${oc.env:LOGS_ROOT}/frf_tune_inr_mnist_new
+    save_dir: ${oc.env:LOGS_ROOT}/Eval_512_batchsize_970000_save_train_clipped
   trainer_logging:
     use_wandb: True
     wandb_init:
@@ -28,7 +28,7 @@ trainers:
 
   evaluation_config:
     seed: 43 # random seed for reproducibility
-    eval_dir: ${oc.env:LOGS_ROOT}/frf_tune_inr_mnist_new_eval_res_noweights # directory where evaluation results are saved
+    eval_dir: ${oc.env:LOGS_ROOT}/Eval_1024_batchsize_970000_save_eval_clipped # directory where evaluation results are saved
     num_samples: 16000 # number of samples to be generated for evaluation
 
 sdes:
@@ -54,6 +54,13 @@ samplers:
     denoise: True
     probability_flow: True
     factor: 0.6
+    rtol: 1e-4 #[NEW] parameter for adaptive solver
+    atol: 1e-4 #[NEW] parameter for adaptive solver
+    t0: 0 # [NEW] starting time for sampling
+    t1: 0.9999 # [NEW] end time for sampling
+    clip: True # [NEW]
+    clip_lower: -1.0 # [NEW]
+    clip_upper: 1.0 # [NEW]
 
 models:
   model_config:

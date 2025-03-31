@@ -75,37 +75,6 @@ class ODESampler(Sampler, abc.ABC):
             ** self.sampler_config.k
         )
 
-        def _step_pc_sample_fn(i, val):
-            """Executes a single step in the PC sampling process.
-
-            This function orchestrates the predictor-corrector step in the sampling
-            process at a specific time step.
-
-            Args:
-                i (int): The current step index.
-                val (Tuple): The current values of the sampling process.
-
-            Returns:
-                Tuple: The updated values of the sampling process.
-            """
-            rng, x, x_mean, init_noise, batch_input, params, history = val
-            t = times[i - 1]
-            vec_t = t * jnp.ones((x.shape[0], 1))
-
-            # rng, step_rng = jax.random.split(rng)
-            # x, x_mean = self.corrector.update_fn(step_rng, params, predict_fn, x, batch_input, vec_t)
-            # rng, step_rng = jax.random.split(rng)
-            # x, x_mean = self.predictor.update_fn(step_rng, params, predict_fn, x, batch_input, vec_t)
-
-            ode = self.sde
-            dt = (ode.sde_config.T - ode.sde_config.eps) / ode.sde_config.N
-            psm = ode.get_psm(vec_t)
-            shape = ode.sde_config.shape
-            v = predict_fn(params, x, batch_input, vec_t, psm, shape)
-            x = x + (v - x) / (1 - t) * dt
-
-            return rng, x, x, init_noise, batch_input, params, history.at[i - 1].set(x)
-
         @partial(jax.pmap, axis_name="device")
         def sample_fn(rng: PRNGKeyArray, batch_input: jnp.ndarray, params: Params) -> tuple[Any, Any, Any]:
             """Performs parallel sampling to generate a sequence of states over time.
@@ -133,23 +102,29 @@ class ODESampler(Sampler, abc.ABC):
                 vec_t = t * jnp.ones((x.shape[0], 1))
                 shape = self.sde.sde_config.shape
                 psm = self.sde.get_psm(vec_t)
-                v = predict_fn(params, x, batch_input, vec_t, psm, shape)
                 if self.sde.sde_config.predict_noise:
-                    return (x - v) / (t + eps)
-                    # v = (x - v * (1-t)) / (t+eps)
-                return (v - x) / (1 - t + eps)
+                    pred_eps = predict_fn(params, x, batch_input, vec_t, psm, shape)
+                    pred_x1 = (x - pred_eps * (1 - vec_t)) / (vec_t + eps)
+                else:
+                    pred_x1 = predict_fn(params, x, batch_input, vec_t, psm, shape)
+                if self.sampler_config.clip:
+                    # [TODO: change the lower and upper bound on config]
+                    pred_x1 = jnp.clip(
+                        pred_x1, a_min=self.sampler_config.clip_lower, a_max=self.sampler_config.clip_upper
+                    )
+                return (pred_x1 - x) / (1 - t + eps)
 
             term = diffrax.ODETerm(func)  # ODE term
             t0 = self.sampler_config.eps
             t1 = self.sampler_config.T - self.sampler_config.eps
             saveat = diffrax.SaveAt(ts=jnp.linspace(t0, t1, self.sampler_config.N + 1))
             solver = diffrax.Dopri5()
-            stepsize_controller = diffrax.PIDController(rtol=1e-2, atol=3e-3)
+            stepsize_controller = diffrax.PIDController(rtol=self.sampler_config.rtol, atol=self.sampler_config.atol)
             solution = diffrax.diffeqsolve(
                 term,
                 solver,
-                t0=t0,
-                t1=t1,
+                t0=self.sampler_config.t0,
+                t1=self.sampler_config.t1,
                 dt0=1e-3,
                 y0=batch_noise,
                 saveat=saveat,
@@ -172,7 +147,11 @@ class ODESampler(Sampler, abc.ABC):
                         params, x_mean, batch_input, vec_t, psm, shape, self.sampler_config.target_shape
                     )
             else:
-                y_reconstructed = predict_fn(params, x_mean, batch_input, vec_t, psm, shape)
+                if self.sde.sde_config.predict_noise:
+                    pred_eps = predict_fn(params, x_mean, batch_input, vec_t, psm, shape)
+                    y_reconstructed = (x_mean - pred_eps * (1 - vec_t)) / vec_t
+                else:
+                    y_reconstructed = predict_fn(params, x_mean, batch_input, vec_t, psm, shape)
             return x, y_reconstructed, x_all_steps
 
         return sample_fn

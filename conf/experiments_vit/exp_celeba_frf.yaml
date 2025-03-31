@@ -8,17 +8,18 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "local"
+  model_name: "100001_cfj3uc7p:v0"
   training_config:
     total_steps: 500000
-    eval_freq: 5000
+    eval_freq: 10000
     scheduler_steps: 10000
-    checkpoint_freq: 5000
+    checkpoint_freq: 10000
+    resume_training: True
     warmup_steps: 5000
     decay_steps : 10000
     peak_value: 3.3e-4
     end_value: 2e-4
-    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf
+    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_run1
     ema_rate: 0.9999
     sampling_only: False
     weight_decay: 0.03
@@ -47,12 +48,17 @@ trainers:
 
 losses:
   loss_config:
-    frequency_space: False # True
+    frequency_space: True
     normalize_time: False
     reduce_mean: False
     scheduler_steps: ${trainers.training_config.scheduler_steps}
     use_scheduler: False
     y_input: True
+    use_weights: True # [NEW] Esser et al. 2024, weights on time
+    outer_fftshift: False # [NEW] shift the FFT frequency
+    outer_psm: True # [NEW] apply the psm matrx on outer loss
+    lognormal_mean: 0.75 # [NEW]
+    lognormal_std: 1.0 # [NEW]
 correctors:
   snr: 0.16
 
@@ -70,6 +76,9 @@ sdes:
     const: 0.02
     x_norm: 64
     energy_norm: 64
+    psm_choice: "fdp" # [NEW] type of psm matrix to use
+    prior_type: "fdp" # [NEW] type of noise prior
+    predict_noise: False # [NEW] predict noise, Esser et al. 2024
 
 
 datasets:

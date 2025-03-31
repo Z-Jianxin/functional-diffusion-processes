@@ -143,7 +143,11 @@ class ODEMSELoss(abc.ABC):
                 else:
                     squared_loss = jnp.abs(prediction_freq - target_freq) ** 2
             else:
-                squared_loss = jnp.abs(prediction - target) ** 2
+                if self.loss_config.outer_psm:
+                    psm = self.sde.get_psm(t)
+                    squared_loss = jnp.abs(prediction * psm - batch_real * psm) ** 2
+                else:
+                    squared_loss = jnp.abs(prediction - target) ** 2
 
             if self.loss_config.use_weights:
                 logit_normal = LogitNormalDistribution(
@@ -156,7 +160,7 @@ class ODEMSELoss(abc.ABC):
                 if self.sde.sde_config.predict_noise:
                     weights = weights / (t_flat**2 + 1e-6)
                 weights = weights.reshape((b, 1, 1))
-                weights = jnp.broadcast_to(weights, (b, g, 1)).reshape(b, *shape, c)
+                weights = jnp.broadcast_to(weights, (b, g, c)).reshape(b, *shape, c)
                 squared_loss = weights * squared_loss
 
             losses = reduce_op(squared_loss.reshape(squared_loss.shape[0], -1), axis=-1)
