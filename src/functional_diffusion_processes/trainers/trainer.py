@@ -246,7 +246,7 @@ class Trainer(abc.ABC):
         if self.logging.use_wandb:
             wandb_model_artifact_name = str(step_) + "_" + run.id
             wandb_model = wandb.Artifact(wandb_model_artifact_name, type="model")
-            wandb_model.add_file(checkpoint_file)
+            wandb_model.add_file(checkpoint_file, skip_cache=True)
             run.log_artifact(wandb_model)
 
     # noinspection PyProtectedMember

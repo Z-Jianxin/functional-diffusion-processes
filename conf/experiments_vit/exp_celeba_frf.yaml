@@ -8,7 +8,7 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "100001_cfj3uc7p:v0"
+  model_name: "local"
   training_config:
     total_steps: 500000
     eval_freq: 10000
@@ -19,7 +19,7 @@ trainers:
     decay_steps : 10000
     peak_value: 3.3e-4
     end_value: 2e-4
-    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_run1
+    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_runpod_0
     ema_rate: 0.9999
     sampling_only: False
     weight_decay: 0.03
@@ -78,7 +78,7 @@ sdes:
     energy_norm: 64
     psm_choice: "fdp" # [NEW] type of psm matrix to use
     prior_type: "fdp" # [NEW] type of noise prior
-    predict_noise: False # [NEW] predict noise, Esser et al. 2024
+    predict_noise: True # [NEW] predict noise, Esser et al. 2024
 
 
 datasets:

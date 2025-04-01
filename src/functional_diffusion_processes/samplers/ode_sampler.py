@@ -104,7 +104,7 @@ class ODESampler(Sampler, abc.ABC):
                 psm = self.sde.get_psm(vec_t)
                 if self.sde.sde_config.predict_noise:
                     pred_eps = predict_fn(params, x, batch_input, vec_t, psm, shape)
-                    pred_x1 = (x - pred_eps * (1 - vec_t)) / (vec_t + eps)
+                    pred_x1 = (x - pred_eps * (1 - t)) / (t + eps)
                 else:
                     pred_x1 = predict_fn(params, x, batch_input, vec_t, psm, shape)
                 if self.sampler_config.clip:
@@ -149,7 +149,7 @@ class ODESampler(Sampler, abc.ABC):
             else:
                 if self.sde.sde_config.predict_noise:
                     pred_eps = predict_fn(params, x_mean, batch_input, vec_t, psm, shape)
-                    y_reconstructed = (x_mean - pred_eps * (1 - vec_t)) / vec_t
+                    y_reconstructed = (x_mean - pred_eps * (1 - t)) / t
                 else:
                     y_reconstructed = predict_fn(params, x_mean, batch_input, vec_t, psm, shape)
             return x, y_reconstructed, x_all_steps
