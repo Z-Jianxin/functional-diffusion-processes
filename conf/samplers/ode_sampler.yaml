@@ -14,3 +14,5 @@ sampler_config:
   clip: True # [NEW]
   clip_lower: -1.0 # [NEW]
   clip_upper: 1.0 # [NEW]
+  solver: "Dopri5" #[NEW] Euler or Dopri5
+  dt0: 0.01 #[NEW]

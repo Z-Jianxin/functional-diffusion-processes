@@ -108,7 +108,6 @@ class ODESampler(Sampler, abc.ABC):
                 else:
                     pred_x1 = predict_fn(params, x, batch_input, vec_t, psm, shape)
                 if self.sampler_config.clip:
-                    # [TODO: change the lower and upper bound on config]
                     pred_x1 = jnp.clip(
                         pred_x1, a_min=self.sampler_config.clip_lower, a_max=self.sampler_config.clip_upper
                     )
@@ -118,14 +117,24 @@ class ODESampler(Sampler, abc.ABC):
             t0 = self.sampler_config.eps
             t1 = self.sampler_config.T - self.sampler_config.eps
             saveat = diffrax.SaveAt(ts=jnp.linspace(t0, t1, self.sampler_config.N + 1))
-            solver = diffrax.Dopri5()
-            stepsize_controller = diffrax.PIDController(rtol=self.sampler_config.rtol, atol=self.sampler_config.atol)
+            if self.sampler_config.solver == "Dopri5":
+                solver = diffrax.Dopri5()
+                stepsize_controller = diffrax.PIDController(
+                    rtol=self.sampler_config.rtol, atol=self.sampler_config.atol
+                )
+                dt0 = None
+            elif self.sampler_config.solver == "Euler":
+                solver = diffrax.Euler()
+                stepsize_controller = diffrax.ConstantStepSize()
+                dt0 = self.sampler_config.dt0
+            else:
+                raise ValueError("Unimplemented solver type.")
             solution = diffrax.diffeqsolve(
                 term,
                 solver,
                 t0=self.sampler_config.t0,
                 t1=self.sampler_config.t1,
-                dt0=1e-3,
+                dt0=dt0,
                 y0=batch_noise,
                 saveat=saveat,
                 args=(1e-6,),

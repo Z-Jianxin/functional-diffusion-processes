@@ -3,23 +3,26 @@ defaults:
   - override /trainers: trainer_vit
   - override /models: uvit
   - override /datasets: celeba
-  - override /sdes: heat_subvp
-  - override /predictors: euler
-  - override /correctors: langevin
+  - override /samplers: ode_sampler
+  - override /sdes: ode
 
 trainers:
   mode: "eval"
-  model_name: "local"
+  model_name: "350001_f95famvk:v0" # "local" # [MODIFIED]
   training_config:
-    save_dir: ${oc.env:LOGS_ROOT}/uvit_celeba
+    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise350000_eval_euler10 # [MODIFIED]
     ema_rate: 0.9999
     weight_decay: 0.03
+    sampling_only: True # [MODIFIED]
   evaluation_config:
     seed: 43 # random seed for reproducibility
-    eval_dir: ${oc.env:LOGS_ROOT}/uvit_celeba
-    num_samples: 50000 # number of samples to be generated for evaluation
+    eval_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_350000_eval_euler10 # [MODIFIED]
+    num_samples: 50000 # number of samples to be generated for evaluation [ATTENTION] # training size: "162770"
   trainer_logging:
     use_wandb: True
+    wandb_init:
+      name: ${trainers.training_config.save_dir} # [NEW]
+      project: "frf_tune_vit_celeba" # [NEW]
   optimizer:
     _target_: "optax.MultiSteps"
     opt:
@@ -43,9 +46,18 @@ correctors:
 
 samplers:
   sampler_config:
-    N: 100
+    N: 10 # [MODIFIED]
     k: 1
     denoise: True
+    rtol: 1e-1 #[NEW] parameter for adaptive solver
+    atol: 5e-2 #[NEW] parameter for adaptive solver
+    t0: 0 # [NEW] starting time for sampling
+    t1: 0.999 # [NEW] end time for sampling
+    clip: True # [NEW]
+    clip_lower: -1.0 # [NEW]
+    clip_upper: 1.0 # [NEW]
+    solver: "Euler" #[NEW] Euler or Dopri5
+    dt0: 0.02 #[NEW]
 
 sdes:
   sde_config:
@@ -55,6 +67,9 @@ sdes:
     factor: 0.5
     x_norm: 64
     energy_norm: 64
+    psm_choice: "fdp" # [NEW] type of psm matrix to use
+    prior_type: "fdp" # [NEW] type of noise prior
+    predict_noise: True # [NEW] predict noise, Esser et al. 2024
 
 
 models:
@@ -77,4 +92,4 @@ models:
 datasets:
   test:
     data_config:
-      batch_size: 64
+      batch_size: 16

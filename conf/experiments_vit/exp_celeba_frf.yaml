@@ -8,21 +8,21 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "local"
+  model_name: "440001_f95famvk:v0"
   training_config:
-    total_steps: 500000
+    total_steps: 640000
     eval_freq: 10000
     scheduler_steps: 10000
     checkpoint_freq: 10000
     resume_training: True
     warmup_steps: 5000
     decay_steps : 10000
-    peak_value: 3.3e-4
-    end_value: 2e-4
-    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_runpod_0
+    peak_value: 3.3e-5 #[MODIFIED] from 3.3e-4
+    end_value: 2e-5 #[MODIFIED] from 2e-4
+    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_continued_GL
     ema_rate: 0.9999
     sampling_only: False
-    weight_decay: 0.03
+    weight_decay: 0.01 #[MODIFIED] from 0.03
   trainer_logging:
     use_wandb: True
     wandb_init:
@@ -57,7 +57,7 @@ losses:
     use_weights: True # [NEW] Esser et al. 2024, weights on time
     outer_fftshift: False # [NEW] shift the FFT frequency
     outer_psm: True # [NEW] apply the psm matrx on outer loss
-    lognormal_mean: 0.75 # [NEW]
+    lognormal_mean: 0.5 # [NEW]
     lognormal_std: 1.0 # [NEW]
 correctors:
   snr: 0.16
@@ -67,8 +67,6 @@ samplers:
     N: 100
     k: 1
     denoise: True
-    probability_flow: True
-    factor: 0.6
 
 sdes:
   sde_config:
