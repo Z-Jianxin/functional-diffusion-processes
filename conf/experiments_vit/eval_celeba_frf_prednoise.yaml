@@ -8,16 +8,16 @@ defaults:
 
 trainers:
   mode: "eval"
-  model_name: "350001_f95famvk:v0" # "local" # [MODIFIED]
+  model_name: "620001_9wssvobl:v0" # "local" # [MODIFIED]
   training_config:
-    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise350000_eval_euler10 # [MODIFIED]
+    save_dir: ${oc.env:LOGS_ROOT}/celeba_superres_debug1 # [MODIFIED]
     ema_rate: 0.9999
     weight_decay: 0.03
     sampling_only: True # [MODIFIED]
   evaluation_config:
     seed: 43 # random seed for reproducibility
-    eval_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_350000_eval_euler10 # [MODIFIED]
-    num_samples: 50000 # number of samples to be generated for evaluation [ATTENTION] # training size: "162770"
+    eval_dir: ${oc.env:LOGS_ROOT}/celeba_superres_debug1 # [MODIFIED]
+    num_samples: 4 # number of samples to be generated for evaluation [ATTENTION] # training size: "162770"
   trainer_logging:
     use_wandb: True
     wandb_init:
@@ -57,7 +57,7 @@ samplers:
     clip_lower: -1.0 # [NEW]
     clip_upper: 1.0 # [NEW]
     solver: "Euler" #[NEW] Euler or Dopri5
-    dt0: 0.02 #[NEW]
+    dt0: 0.1 #[NEW]
 
 sdes:
   sde_config:

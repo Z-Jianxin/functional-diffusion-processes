@@ -12,6 +12,44 @@ from ..sdetools.sde_utils import construct_b_and_r, rand_phase
 from ..utils.common import batch_mul
 
 
+def sobolev_weights_2d(shape, s, c):
+    """Output Sobolev scaling weights for a 2D frequency grid.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Spatial dimensions (height, width) of the input.
+    s : float
+        Order of the Sobolev norm.
+    c : float
+        Scaling of the coordinate system (1 / pixel size).
+
+    Returns
+    -------
+    scale : jnp.ndarray of shape (H, W)
+        Sobolev scaling weights.
+    """
+    sy, sx = shape
+
+    # Frequency coordinates
+    fx = jnp.arange(sx)
+    fx = jnp.minimum(fx, sx - fx) / (sx // 2)
+
+    fy = jnp.arange(sy)
+    fy = jnp.minimum(fy, sy - fy) / (sy // 2)
+
+    X, Y = jnp.meshgrid(fx, fy)  # shape (H, W)
+
+    freq_squared = X**2 + Y**2  # shape (H, W)
+    base = 1 + c * freq_squared  # shape (H, W)
+
+    base = base[None, :, :]  # shape (1, H, W)
+
+    scale = base ** (s / 2)  # shape (B, H, W)
+
+    return scale
+
+
 class RectifiedODE(SDE, abc.ABC):
     """Heat RectifiedODE class representing a deterministic ODE for functional rectified flow.
 
@@ -67,6 +105,10 @@ class RectifiedODE(SDE, abc.ABC):
             psm = jnp.expand_dims(jnp.ones_like(t) * jnp.sqrt(self.b / self.r).reshape(1, *self.shape), -1)
         elif self.sde_config.psm_choice == "all_ones":
             psm = jnp.ones((t.shape[0], *self.shape, 1))
+        elif self.sde_config.psm_choice == "sobolev":
+            psm = sobolev_weights_2d(self.shape, s=-t / 2.0, c=1.0)
+            psm = jnp.expand_dims(psm, axis=(-1))
+            assert psm.shape == (t.shape[0], *self.shape, 1)
         elif Path(self.sde_config.psm_choice).is_file():
             psm = jnp.array(np.load(self.sde_config.psm_choice))
             psm = jnp.expand_dims(psm, axis=(0, -1))
@@ -178,6 +220,8 @@ class RectifiedODE(SDE, abc.ABC):
             return self._fdp_prior(rng, shape, t0)
         elif self.prior_type == "matern_onehalf":
             return self._marten_kerel_prior(rng, shape, t0)
+        elif self.prior_type == "iid":
+            return jax.random.normal(key=rng, shape=shape)
         raise NotImplementedError(f"Does not recognize prior type {self.prior_type}")
 
     def marginal_prob(

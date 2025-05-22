@@ -8,18 +8,18 @@ defaults:
   - override /sdes: ode
 
 trainers:
-  model_name: "440001_f95famvk:v0"
+  model_name: "none" #"620001_9wssvobl:v0" #"440001_f95famvk:v0"
   training_config:
-    total_steps: 640000
+    total_steps: 350000
     eval_freq: 10000
     scheduler_steps: 10000
     checkpoint_freq: 10000
-    resume_training: True
+    resume_training: False
     warmup_steps: 5000
     decay_steps : 10000
     peak_value: 3.3e-5 #[MODIFIED] from 3.3e-4
     end_value: 2e-5 #[MODIFIED] from 2e-4
-    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_continued_GL
+    save_dir: ${oc.env:LOGS_ROOT}/train_uvit_celeba_frf_prednoise_sobolev_neg
     ema_rate: 0.9999
     sampling_only: False
     weight_decay: 0.01 #[MODIFIED] from 0.03
@@ -74,9 +74,9 @@ sdes:
     const: 0.02
     x_norm: 64
     energy_norm: 64
-    psm_choice: "fdp" # [NEW] type of psm matrix to use
-    prior_type: "fdp" # [NEW] type of noise prior
-    predict_noise: True # [NEW] predict noise, Esser et al. 2024
+    psm_choice: "sobolev" #"fdp" # [NEW] type of psm matrix to use
+    prior_type: "iid" #"fdp" # [NEW] type of noise prior
+    predict_noise: True # True # [NEW] predict noise, Esser et al. 2024
 
 
 datasets:
