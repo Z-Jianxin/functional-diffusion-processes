@@ -48,7 +48,7 @@ losses:
 
 sdes:
   sde_config:
-    psm_choice: "fdp" # "/nfs/turbo/coe-clayscot/jianxinz/fdp_project/data_stats/mnist_recip_std.npy"
+    psm_choice: "fdp"
     beta_max: 5.0
     const: 0.02
     psm_type: "time_independent"
